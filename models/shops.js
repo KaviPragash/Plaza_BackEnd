@@ -1,6 +1,7 @@
 const { DataTypes} = require("sequelize");
 const sequelize = require("../config/database")
-const AdminUser = require("../models/AdminUser")
+const AdminUser = require("../models/AdminUser");
+const Business = require("./business");
 
 const Shops = sequelize.define("Shops",{
     id: {
@@ -12,6 +13,14 @@ const Shops = sequelize.define("Shops",{
         references: {
             model: AdminUser,
             key: "id",
+        },
+        allowNull: true,
+    },
+    business_code: {
+        type: DataTypes.STRING,
+        references: {
+            model: Business,
+            key: "business_code",
         },
         allowNull: true,
     },
@@ -46,6 +55,7 @@ const Shops = sequelize.define("Shops",{
 
 // Associations
 Shops.belongsTo(AdminUser, { foreignKey: "owner_id" });
+Shops.belongsTo(Business, { foreignKey: "business_code" });
 
 // Auto-generate custom ID before creating a user
 Shops.beforeCreate(async (shops) => {

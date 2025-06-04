@@ -2,7 +2,6 @@ const Products = require("../models/products");
 const Shops = require("../models/shops");
 const ProductVariants = require("../models/productVariants");
 const StockBatches = require("../models/StockBatches");
-const { Sequelize } = require("sequelize");
 const MainCategory = require("../models/MainCategory");
 const SubCategory = require("../models/SubCategory");
 
@@ -54,13 +53,13 @@ exports.AddProductsVariants = async (req,res) => {
             } = req.body;
 
         if (!product_code || !selling_price) {
-            return res.status(400).json({ Message: "Product code and price are required." });
+            return res.status(400).json({message: "product code and price are required"})
         }
             
         const product_codeExites = product_code ? await Products.findByPk(product_code): null;
 
         if (product_code && !product_codeExites){
-            return res.status(400)({message: "Invalid Shop ID"})
+            return res.status(400).json({message: "Invalid Product ID"})
         }
 
         await ProductVariants.create({
@@ -73,7 +72,7 @@ exports.AddProductsVariants = async (req,res) => {
         res.status(200).json({Message: "Product Varient Added Successfully"})
     }
     catch(error){
-        res.status(500).json({message: "Internal server Error", error: error.message})
+        res.status(500).json({message: "internal Server Error", error: error.message})
     }
 }
 
@@ -104,12 +103,13 @@ exports.AddStockBatches = async(req, res) => {
     catch(error){
        return res.status(500).json({message: "internal Server Error", Error: error.message})
     }
-}
+};
 
 exports.getAllProducts = async (req, res) => {
     try {
         const products = await ProductVariants.findAll({
-            attributes: ["productVarient_code", "product_code", "barcode", "size", "selling_price"],
+            attributes: ["productVarient_code", "product_code", "barcode", "size", "selling_price", "discount_percentage", 
+                "is_discount_active","discount_sellingPrice"],
             include: [
                 {
                     model: Products,
@@ -144,9 +144,12 @@ exports.getAllProducts = async (req, res) => {
                 sCategory_code: variant.Product.sCategory_code,
                 product_description: variant.Product.product_description,
                 image_url: variant.Product.image_url,
-                selling_price: variant.price,
+                selling_price: variant.selling_price,
                 total_quantity: totalQuantity,
-                quantity_type: quantityType
+                quantity_type: quantityType,
+                discount_percentage: variant.discount_percentage,
+                is_discount_active: variant.is_discount_active,
+                discountSellingPrice: variant.discount_sellingPrice,
             };
         });
 
@@ -162,6 +165,70 @@ exports.getAllProducts = async (req, res) => {
         });
     }
 };
+
+exports.GetProductbyBarcode = async(req, res) => {
+    try {
+        const { barcode } = req.params;
+    
+        const product = await ProductVariants.findOne({
+            where: { barcode },
+            attributes: ["productVarient_code", "product_code", "barcode", "size", "selling_price","discount_percentage", 
+                "is_discount_active","discount_sellingPrice"],
+            include: [
+                {
+                    model: Products,
+                    attributes: [
+                        "shop_id",
+                        "product_name",
+                        "mCategory_code",
+                        "sCategory_code",
+                        "product_description",
+                        "image_url"
+                    ]
+                },
+                {
+                    model: StockBatches,
+                    attributes: ["variant_id", "quantity", "quantityType"]
+                }
+            ]
+        });
+    
+        if (!product) {
+            return res.status(404).json({ message: "Product not found" });
+        }
+    
+        const totalQuantity = product.StockBatches?.reduce((sum, batch) => sum + batch.quantity, 0) || 0;
+        const quantityType = product.StockBatches?.[0]?.quantityType || null;
+    
+        const formattedProduct = {
+            product_code: product.product_code,
+            productVarient_code: product.productVarient_code,
+            product_name: product.Product?.product_name,
+            size: product.size,
+            barcode: product.barcode,
+            shop_id: product.Product?.shop_id,
+            mCategory_code: product.Product?.mCategory_code,
+            sCategory_code: product.Product?.sCategory_code,
+            product_description: product.Product?.product_description,
+            image_url: product.Product?.image_url,
+            selling_price: product.selling_price,
+            total_quantity: totalQuantity,
+            quantity_type: quantityType,
+            discount_percentage: product.discount_percentage,
+            is_discount_active: product.is_discount_active,
+            discountSellingPrice: product.discount_sellingPrice,
+        };
+    
+        return res.status(200).json({
+            message: "Product details retrieved successfully",
+            product: formattedProduct
+        });
+    
+    }
+    catch(error){
+        res.status(500).json({message: "Internal Server Error", error: error.message})
+    }
+}
 
 exports.UpdateProductVarient = async(req, res) => {
     try{
@@ -226,6 +293,70 @@ exports.updateProducts = async(req, res) => {
     catch(error){
         res.status(500).json({message: "Internal Server Error", error: error.message})
     }
-}
+};
+
+exports.AddDiscount = async (req, res) => {
+    try {
+        const { variant_id, discount_percentage, is_discount_active } = req.body;
+
+        if (!variant_id) {
+            return res.status(404).json({ message: "Product variant ID not found" });
+        }
+
+        const productVariant = await ProductVariants.findOne({
+            where: { productVarient_code: variant_id },
+            attributes: ["productVarient_code","selling_price"]
+        });
+
+        if (!productVariant) {
+            return res.status(404).json({ message: "Product variant not found" });
+        }
+
+        const discountAmount = productVariant.selling_price * (discount_percentage / 100);
+        const discountSellingPrice = productVariant.selling_price - discountAmount;
+
+        await productVariant.update({
+            discount_percentage,
+            is_discount_active,
+            discount_sellingPrice: discountSellingPrice
+        });
+
+        return res.status(200).json({ message: "Discount added successfully" });
+
+    } catch (error) {
+        return res.status(500).json({ message: "Internal Server Error", error: error.message });
+    }
+};
+
+exports.ActivateDiscount = async (req, res) => {
+    try {
+        const { variant_id, is_discount_active } = req.body;
+
+        if (!variant_id) {
+            return res.status(404).json({ message: "Product variant ID is required" });
+        }
+
+        const productVariant = await ProductVariants.findOne({
+            where: { productVarient_code: variant_id }
+        });
+
+        if (!productVariant) {
+            return res.status(404).json({ message: "Product variant not found" });
+        }
+
+        await productVariant.update({
+            is_discount_active
+        });
+
+        return res.status(200).json({
+            message: `Discount has been ${is_discount_active ? "activated" : "deactivated"} successfully`
+        });
+
+    } catch (error) {
+        return res.status(500).json({ message: "Internal Server Error", error: error.message });
+    }
+};
+
+
 
 

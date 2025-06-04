@@ -28,6 +28,21 @@ const ProductVariants = sequelize.define("ProductVariants", {
         type: DataTypes.INTEGER,
         allowNull: false,
     },
+    discount_percentage: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        defaultValue: 0,
+    },
+    is_discount_active: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue: false,
+    },
+    discount_sellingPrice: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        defaultValue: 0
+    }
 }, {
     timestamps: true,
     tableName: "ProductVariants",
@@ -49,7 +64,6 @@ ProductVariants.beforeCreate(async (Productvarient) => {
     Productvarient.productVarient_code = newId; // Fixed case-sensitive assignment
 });
 
-ProductVariants.belongsTo(Products, { foreignKey: "product_code" });;
-
+ProductVariants.belongsTo(Products, { foreignKey: "product_code" });
 
 module.exports = ProductVariants;

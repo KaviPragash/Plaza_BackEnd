@@ -3,8 +3,8 @@ const sequelize = require("../config/database");
 
 const Order = sequelize.define('Order', {
     id: { type: DataTypes.STRING, primaryKey: true},
-    cashier_id: { type: DataTypes.STRING, allowNull: false },
-    total_amount: { type: DataTypes.FLOAT, allowNull: false },
+    cashier_id: { type: DataTypes.STRING, allowNull: true },
+    total_amount: { type: DataTypes.FLOAT, allowNull: true },
 }, {
     timestamps: true,
     tableName: 'Order',
