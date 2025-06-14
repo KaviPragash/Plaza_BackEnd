@@ -4,28 +4,42 @@ const ProductVariants = require("../models/productVariants");
 const StockBatches = require("../models/StockBatches");
 const MainCategory = require("../models/MainCategory");
 const SubCategory = require("../models/SubCategory");
+const sequelize = require("../config/database"); // ✅ Add this line
+const ProductVariantAttributes = require("../models/ProductVariantAttributes");
 
-exports.AddProducts = async (req,res) => {
-    try{
-        const {shop_id,product_name, mCategory_code, sCategory_code, product_description, image_url} = req.body;
+
+exports.AddProducts = async (req, res) => {
+    try {
+        const {
+            shop_id,
+            product_name,
+            mCategory_code,
+            sCategory_code,
+            product_description,
+            image_url,
+        } = req.body;
 
         if (!product_name) {
-            return res.status(400).json({message: "Product name not found"});
+            return res.status(400).json({ message: "Product name not found" });
         }
 
-        const ShopIdExites = shop_id ? await Shops.findByPk(shop_id): null;
-        if (shop_id && !ShopIdExites){
-            return res.status(400)({message: "Invalid Shop ID"})
+        const ShopIdExites = shop_id ? await Shops.findByPk(shop_id) : null;
+        if (shop_id && !ShopIdExites) {
+            return res.status(400)({ message: "Invalid Shop ID" });
         }
 
-        const mCategoryExites = mCategory_code ? await MainCategory.findByPk(mCategory_code): null;
-        if (mCategory_code && !mCategoryExites){
-            return res.status(400)({message: "Invalid MainCategory ID"})
+        const mCategoryExites = mCategory_code
+            ? await MainCategory.findByPk(mCategory_code)
+            : null;
+        if (mCategory_code && !mCategoryExites) {
+            return res.status(400)({ message: "Invalid MainCategory ID" });
         }
 
-        const sCategoryExites = sCategory_code ? await SubCategory.findByPk(sCategory_code): null;
-        if (sCategory_code && !sCategoryExites){
-            return res.status(400)({message: "Invalid MainCategory ID"})
+        const sCategoryExites = sCategory_code
+            ? await SubCategory.findByPk(sCategory_code)
+            : null;
+        if (sCategory_code && !sCategoryExites) {
+            return res.status(400)({ message: "Invalid MainCategory ID" });
         }
 
         await Products.create({
@@ -34,60 +48,96 @@ exports.AddProducts = async (req,res) => {
             mCategory_code,
             sCategory_code,
             product_description,
-            image_url
+            image_url,
         });
 
-        res.status(200).json({Message: "Product Added Successfully"})
-    }
-    catch(error){
-        res.status(500).json({message: "Internal server Error", error: error.message})
+        res.status(200).json({ Message: "Product Added Successfully" });
+    } catch (error) {
+        res
+            .status(500)
+            .json({ message: "Internal server Error", error: error.message });
     }
 };
 
-exports.AddProductsVariants = async (req,res) => {
-    try{
-        const {product_code,
-            size, 
+exports.AddProductsVariants = async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+        const {
+            product_code,
+            productVariant_name,
+            size,
             selling_price,
-            barcode
-            } = req.body;
+            barcode,
+            discount_percentage,
+            is_discount_active,
+            attributes // Array of {name, value}
+        } = req.body;
 
         if (!product_code || !selling_price) {
-            return res.status(400).json({message: "product code and price are required"})
-        }
-            
-        const product_codeExites = product_code ? await Products.findByPk(product_code): null;
-
-        if (product_code && !product_codeExites){
-            return res.status(400).json({message: "Invalid Product ID"})
+            return res.status(400).json({ message: "Product code and price are required" });
         }
 
-        await ProductVariants.create({
+        const product_codeExists = await Products.findByPk(product_code);
+        if (!product_codeExists) {
+            return res.status(400).json({ message: "Invalid Product ID" });
+        }
+
+        const discount_sellingPrice = is_discount_active
+            ? selling_price - (selling_price * (discount_percentage || 0) / 100)
+            : selling_price;
+
+        const variant = await ProductVariants.create({
             product_code,
-            size, 
+            productVariant_name,
+            size,
             barcode,
-            selling_price
-        });
+            selling_price,
+            discount_percentage,
+            is_discount_active,
+            discount_sellingPrice
+        }, { transaction: t });
 
-        res.status(200).json({Message: "Product Varient Added Successfully"})
-    }
-    catch(error){
-        res.status(500).json({message: "internal Server Error", error: error.message})
-    }
-}
+        // Save attributes (max 10)
+        if (Array.isArray(attributes) && attributes.length > 0) {
+            if (attributes.length > 10) {
+                return res.status(400).json({ message: "Maximum 10 attributes allowed" });
+            }
 
-exports.AddStockBatches = async(req, res) => {
-    try{
-        const {variant_id, quantity, quantityType, base_price, received_at} = req.body;
+            for (const attr of attributes) {
+                if (attr.name && attr.value) {
+                    await ProductVariantAttributes.create({
+                        productVarient_code: variant.productVarient_code,
+                        attribute_name: attr.name,
+                        attribute_value: attr.value
+                    }, { transaction: t });
+                }
+            }
+        }
+
+        await t.commit();
+        res.status(200).json({ message: "Product Variant and Attributes Added Successfully" });
+    } catch (error) {
+        await t.rollback();
+        console.error("Error details:", error); // Add this line
+        res.status(500).json({ message: "Internal Server Error", error: error.message });
+    }
+};
+
+exports.AddStockBatches = async (req, res) => {
+    try {
+        const { variant_id, quantity, quantityType, base_price, received_at } =
+            req.body;
 
         if (!variant_id) {
-            res.status(400).json({message: "Product varient not found"})
+            res.status(400).json({ message: "Product varient not found" });
         }
 
-        const product_VarientExites = variant_id ? await ProductVariants.findByPk(variant_id): null;
+        const product_VarientExites = variant_id
+            ? await ProductVariants.findByPk(variant_id)
+            : null;
 
-        if (variant_id && !product_VarientExites){
-            return res.status(400).json({message: "Invalid Product varient ID" })
+        if (variant_id && !product_VarientExites) {
+            return res.status(400).json({ message: "Invalid Product varient ID" });
         }
 
         await StockBatches.create({
@@ -95,21 +145,30 @@ exports.AddStockBatches = async(req, res) => {
             quantity,
             quantityType,
             base_price,
-            received_at
-        })
+            received_at,
+        });
 
-        return res.status(200).json({message: "Stock Added Successfully"})
-    }
-    catch(error){
-       return res.status(500).json({message: "internal Server Error", Error: error.message})
+        return res.status(200).json({ message: "Stock Added Successfully" });
+    } catch (error) {
+        return res
+            .status(500)
+            .json({ message: "internal Server Error", Error: error.message });
     }
 };
 
 exports.getAllProducts = async (req, res) => {
     try {
         const products = await ProductVariants.findAll({
-            attributes: ["productVarient_code", "product_code", "barcode", "size", "selling_price", "discount_percentage", 
-                "is_discount_active","discount_sellingPrice"],
+            attributes: [
+                "productVarient_code",
+                "product_code",
+                "barcode",
+                "size",
+                "selling_price",
+                "discount_percentage",
+                "is_discount_active",
+                "discount_sellingPrice",
+            ],
             include: [
                 {
                     model: Products,
@@ -119,18 +178,21 @@ exports.getAllProducts = async (req, res) => {
                         "mCategory_code",
                         "sCategory_code",
                         "product_description",
-                        "image_url"
-                    ]
+                        "image_url",
+                    ],
                 },
                 {
                     model: StockBatches,
-                    attributes: ["variant_id", "quantity", "quantityType"]
-                }
-            ]
+                    attributes: ["variant_id", "quantity", "quantityType"],
+                },
+            ],
         });
 
         const formattedProducts = products.map((variant) => {
-            const totalQuantity = variant.StockBatches.reduce((sum, batch) => sum + batch.quantity, 0);
+            const totalQuantity = variant.StockBatches.reduce(
+                (sum, batch) => sum + batch.quantity,
+                0
+            );
             const quantityType = variant.StockBatches[0]?.quantityType || null;
 
             return {
@@ -155,25 +217,33 @@ exports.getAllProducts = async (req, res) => {
 
         return res.status(200).json({
             message: "Product details retrieved successfully",
-            formattedProducts
+            formattedProducts,
         });
     } catch (error) {
         console.error("getAllProducts Error:", error);
         return res.status(500).json({
             message: "Internal Server Error",
-            error: error.message
+            error: error.message,
         });
     }
 };
 
-exports.GetProductbyBarcode = async(req, res) => {
+exports.GetProductbyBarcode = async (req, res) => {
     try {
         const { barcode } = req.params;
-    
+
         const product = await ProductVariants.findOne({
             where: { barcode },
-            attributes: ["productVarient_code", "product_code", "barcode", "size", "selling_price","discount_percentage", 
-                "is_discount_active","discount_sellingPrice"],
+            attributes: [
+                "productVarient_code",
+                "product_code",
+                "barcode",
+                "size",
+                "selling_price",
+                "discount_percentage",
+                "is_discount_active",
+                "discount_sellingPrice",
+            ],
             include: [
                 {
                     model: Products,
@@ -183,23 +253,25 @@ exports.GetProductbyBarcode = async(req, res) => {
                         "mCategory_code",
                         "sCategory_code",
                         "product_description",
-                        "image_url"
-                    ]
+                        "image_url",
+                    ],
                 },
                 {
                     model: StockBatches,
-                    attributes: ["variant_id", "quantity", "quantityType"]
-                }
-            ]
+                    attributes: ["variant_id", "quantity", "quantityType"],
+                },
+            ],
         });
-    
+
         if (!product) {
             return res.status(404).json({ message: "Product not found" });
         }
-    
-        const totalQuantity = product.StockBatches?.reduce((sum, batch) => sum + batch.quantity, 0) || 0;
+
+        const totalQuantity =
+            product.StockBatches?.reduce((sum, batch) => sum + batch.quantity, 0) ||
+            0;
         const quantityType = product.StockBatches?.[0]?.quantityType || null;
-    
+
         const formattedProduct = {
             product_code: product.product_code,
             productVarient_code: product.productVarient_code,
@@ -218,80 +290,88 @@ exports.GetProductbyBarcode = async(req, res) => {
             is_discount_active: product.is_discount_active,
             discountSellingPrice: product.discount_sellingPrice,
         };
-    
+
         return res.status(200).json({
             message: "Product details retrieved successfully",
-            product: formattedProduct
+            product: formattedProduct,
         });
-    
+    } catch (error) {
+        res
+            .status(500)
+            .json({ message: "Internal Server Error", error: error.message });
     }
-    catch(error){
-        res.status(500).json({message: "Internal Server Error", error: error.message})
-    }
-}
+};
 
-exports.UpdateProductVarient = async(req, res) => {
-    try{
-        const {productVarient_code, product_code, barcode, size, selling_price} = req.body;
+exports.UpdateProductVarient = async (req, res) => {
+    try {
+        const { productVarient_code, product_code, barcode, size, selling_price } =
+            req.body;
 
-        if (!productVarient_code){
-            return res.status(400).json({message: "Product Varient ID not found"})
+        if (!productVarient_code) {
+            return res.status(400).json({ message: "Product Varient ID not found" });
         }
 
-        const UpdateProductVarient = await ProductVariants.findOne({where: {productVarient_code: productVarient_code}})
+        const UpdateProductVarient = await ProductVariants.findOne({
+            where: { productVarient_code: productVarient_code },
+        });
 
-        if (!UpdateProductVarient){
-            return res.status(400).json({message: "product varient not available"})
+        if (!UpdateProductVarient) {
+            return res.status(400).json({ message: "product varient not available" });
         }
 
         await UpdateProductVarient.update({
             product_code,
             barcode,
             size,
-            selling_price
+            selling_price,
         });
 
-        return res.status(200).json({message: "Product varient Updated Successfully"});
+        return res
+            .status(200)
+            .json({ message: "Product varient Updated Successfully" });
+    } catch (error) {
+        res
+            .status(500)
+            .json({ message: "internal Server Error", error: error.message });
     }
-    catch(error){
-        res.status(500).json({message: "internal Server Error", error: error.message})
-    }
-}
+};
 
-exports.updateProducts = async(req, res) => {
-    try{
-        const {product_code, 
-            shop_id, 
-            product_name, 
-            mCategory_code, 
-            sCategory_code, 
-            product_description, 
-            image_url
-        } = req.body
+exports.updateProducts = async (req, res) => {
+    try {
+        const {
+            product_code,
+            shop_id,
+            product_name,
+            mCategory_code,
+            sCategory_code,
+            product_description,
+            image_url,
+        } = req.body;
 
-        if (!product_code){
-            return res.status(400).json({message: "Product code not Available"})
+        if (!product_code) {
+            return res.status(400).json({ message: "Product code not Available" });
         }
 
-        const UpdateProduct = await Products.findByPk(product_code)
+        const UpdateProduct = await Products.findByPk(product_code);
 
         if (!UpdateProduct) {
-            return res.status(400).json({message: "Product not available"})
+            return res.status(400).json({ message: "Product not available" });
         }
 
         await UpdateProduct.update({
-            shop_id, 
-            product_name, 
-            mCategory_code, 
-            sCategory_code, 
-            product_description, 
-            image_url
+            shop_id,
+            product_name,
+            mCategory_code,
+            sCategory_code,
+            product_description,
+            image_url,
         });
 
-        return res.status(200).json({message: "Products Updated Successfully"});
-    }
-    catch(error){
-        res.status(500).json({message: "Internal Server Error", error: error.message})
+        return res.status(200).json({ message: "Products Updated Successfully" });
+    } catch (error) {
+        res
+            .status(500)
+            .json({ message: "Internal Server Error", error: error.message });
     }
 };
 
@@ -305,26 +385,28 @@ exports.AddDiscount = async (req, res) => {
 
         const productVariant = await ProductVariants.findOne({
             where: { productVarient_code: variant_id },
-            attributes: ["productVarient_code","selling_price"]
+            attributes: ["productVarient_code", "selling_price"],
         });
 
         if (!productVariant) {
             return res.status(404).json({ message: "Product variant not found" });
         }
 
-        const discountAmount = productVariant.selling_price * (discount_percentage / 100);
+        const discountAmount =
+            productVariant.selling_price * (discount_percentage / 100);
         const discountSellingPrice = productVariant.selling_price - discountAmount;
 
         await productVariant.update({
             discount_percentage,
             is_discount_active,
-            discount_sellingPrice: discountSellingPrice
+            discount_sellingPrice: discountSellingPrice,
         });
 
         return res.status(200).json({ message: "Discount added successfully" });
-
     } catch (error) {
-        return res.status(500).json({ message: "Internal Server Error", error: error.message });
+        return res
+            .status(500)
+            .json({ message: "Internal Server Error", error: error.message });
     }
 };
 
@@ -333,11 +415,13 @@ exports.ActivateDiscount = async (req, res) => {
         const { variant_id, is_discount_active } = req.body;
 
         if (!variant_id) {
-            return res.status(404).json({ message: "Product variant ID is required" });
+            return res
+                .status(404)
+                .json({ message: "Product variant ID is required" });
         }
 
         const productVariant = await ProductVariants.findOne({
-            where: { productVarient_code: variant_id }
+            where: { productVarient_code: variant_id },
         });
 
         if (!productVariant) {
@@ -345,18 +429,16 @@ exports.ActivateDiscount = async (req, res) => {
         }
 
         await productVariant.update({
-            is_discount_active
+            is_discount_active,
         });
 
         return res.status(200).json({
-            message: `Discount has been ${is_discount_active ? "activated" : "deactivated"} successfully`
+            message: `Discount has been ${is_discount_active ? "activated" : "deactivated"
+                } successfully`,
         });
-
     } catch (error) {
-        return res.status(500).json({ message: "Internal Server Error", error: error.message });
+        return res
+            .status(500)
+            .json({ message: "Internal Server Error", error: error.message });
     }
 };
-
-
-
-

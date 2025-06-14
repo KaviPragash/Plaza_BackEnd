@@ -15,6 +15,10 @@ const ProductVariants = sequelize.define("ProductVariants", {
         },
         allowNull: false,
     },
+    productVariant_name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     barcode: {
         type: DataTypes.STRING,
         unique: true, // Ensure barcodes are unique

@@ -72,7 +72,7 @@ const Employee = sequelize.define(
   }
 );
 
-Employee.belongsTo(Shops, { foreignKey: "id" });
+Employee.belongsTo(Shops, { foreignKey: "shop_id" });
 
 // Auto-generate custom ID before creating a SubCategory
 Employee.beforeCreate(async (Employees) => {
