@@ -64,10 +64,14 @@ exports.Adminlogin = async(req, res) => {
 
     // Generate a JWT token
     const token = jwt.sign(
-        { id: Adminuser.id, email: Adminuser.email },
-        "your_jwt_secret",
-        { expiresIn: "1h" }
-    );
+  {
+    id: Adminuser.id,
+    email: Adminuser.email,
+    role: Adminuser.role, // include the role
+  },
+  "your_jwt_secret", // better to use env var
+  { expiresIn: "1h" }
+);
 
     res.json({ message: "Login successful", token, 
         Adminuser:{

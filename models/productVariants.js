@@ -1,6 +1,7 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 const Products = require("./products");
+// const ProductVariantAttributes = require("./ProductVariantAttributes");
 
 const ProductVariants = sequelize.define("ProductVariants", {
     productVarient_code: {
@@ -69,5 +70,9 @@ ProductVariants.beforeCreate(async (Productvarient) => {
 });
 
 ProductVariants.belongsTo(Products, { foreignKey: "product_code" });
+// ProductVariants.hasMany(ProductVariantAttributes, {
+//     foreignKey: "productVarient_code",
+//     as: "ProductVariantAttributes"
+// });
 
 module.exports = ProductVariants;

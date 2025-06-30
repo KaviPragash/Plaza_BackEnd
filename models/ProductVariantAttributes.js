@@ -1,4 +1,3 @@
-// models/ProductVariantAttributes.js
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 const ProductVariants = require("./productVariants");
@@ -10,13 +9,13 @@ const ProductVariantAttributes = sequelize.define("ProductVariantAttributes", {
         primaryKey: true
     },
     productVarient_code: {
-        type: DataTypes.STRING,
-        references: {
-            model: ProductVariants,
-            key: "productVarient_code"
-        },
-        allowNull: false
-    },
+    type: DataTypes.STRING,
+    // references: {
+    //     model: ProductVariants,
+    //     key: "productVarient_code"
+    // },
+    allowNull: false
+},
     attribute_name: {
         type: DataTypes.STRING,
         allowNull: false
@@ -28,10 +27,6 @@ const ProductVariantAttributes = sequelize.define("ProductVariantAttributes", {
 }, {
     timestamps: false,
     tableName: "ProductVariantAttributes"
-});
-
-ProductVariantAttributes.belongsTo(ProductVariants, {
-    foreignKey: "productVarient_code"
 });
 
 module.exports = ProductVariantAttributes;
