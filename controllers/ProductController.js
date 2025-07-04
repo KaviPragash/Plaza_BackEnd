@@ -5,7 +5,8 @@ const StockBatches = require("../models/StockBatches");
 const MainCategory = require("../models/MainCategory");
 const SubCategory = require("../models/SubCategory");
 const sequelize = require("../config/database"); // ✅ Add this line
-const ProductVariantAttributes = require("../models/ProductVariantAttributes");
+const ProductVariantAttributes = require("../models/ProductVariantAttributes");;
+const { Op } = require('sequelize');
 
 exports.AddProducts = async (req, res) => {
   try {
@@ -543,3 +544,25 @@ exports.ActivateDiscount = async (req, res) => {
       .json({ message: "Internal Server Error", error: error.message });
   }
 };
+
+exports.searchProducts = async (req, res) => {
+  try {
+    const q = req.query.q || '';
+    const results = await ProductVariants.findAll({
+      where: {
+        name: {
+          [Op.iLike]: `%${q}%` // PostgreSQL case-insensitive match
+        },
+        stock: {
+          [Op.gt]: 0 // Only available products
+        }
+      },
+      limit: 10
+    });
+    res.json(results);
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ message: 'Something went wrong' });
+  }
+};
+
