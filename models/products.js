@@ -41,10 +41,6 @@ const Products = sequelize.define("Products",{
         type: DataTypes.STRING,
         allowNull:false
     },
-    image_url: {
-        type: DataTypes.STRING,
-        allowNull: false
-    }
 },{
     timestamps: true, // Explicitly disable timestamps
     tableName: 'Products',
