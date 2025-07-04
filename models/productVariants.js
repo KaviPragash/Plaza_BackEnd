@@ -47,6 +47,10 @@ const ProductVariants = sequelize.define("ProductVariants", {
         type: DataTypes.FLOAT,
         allowNull: true,
         defaultValue: 0
+    },
+    image_url: {
+        type: DataTypes.STRING,
+        allowNull: false
     }
 }, {
     timestamps: true,

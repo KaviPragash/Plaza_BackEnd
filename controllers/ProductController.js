@@ -14,8 +14,7 @@ exports.AddProducts = async (req, res) => {
       product_name,
       mCategory_code,
       sCategory_code,
-      product_description,
-      image_url,
+      product_description
     } = req.body;
 
     if (!product_name) {
@@ -47,7 +46,6 @@ exports.AddProducts = async (req, res) => {
       mCategory_code,
       sCategory_code,
       product_description,
-      image_url,
     });
 
     res.status(200).json({ Message: "Product Added Successfully" });
@@ -69,6 +67,7 @@ exports.AddProductsVariants = async (req, res) => {
       barcode,
       discount_percentage,
       is_discount_active,
+      image_url,
       attributes, // Array of {name, value}
     } = req.body;
 
@@ -97,6 +96,7 @@ exports.AddProductsVariants = async (req, res) => {
         discount_percentage,
         is_discount_active,
         discount_sellingPrice,
+        image_url,
       },
       { transaction: t }
     );
@@ -182,6 +182,7 @@ exports.getAllProducts = async (req, res) => {
         "discount_percentage",
         "is_discount_active",
         "discount_sellingPrice",
+        "image_url"
       ],
       include: [
         {
@@ -192,7 +193,6 @@ exports.getAllProducts = async (req, res) => {
             "mCategory_code",
             "sCategory_code",
             "product_description",
-            "image_url",
           ],
         },
         {
@@ -228,13 +228,14 @@ exports.getAllProducts = async (req, res) => {
         product_code: variant.product_code,
         productVarient_code: variant.productVarient_code,
         product_name: variant.Product.product_name,
+        productVarient_name: variant.productVariant_name,
         size: variant.size,
         barcode: variant.barcode,
         shop_id: variant.Product.shop_id,
         mCategory_code: variant.Product.mCategory_code,
         sCategory_code: variant.Product.sCategory_code,
         product_description: variant.Product.product_description,
-        image_url: variant.Product.image_url,
+        image_url: variant.image_url,
         selling_price: variant.selling_price,
         total_quantity: totalQuantity,
         quantity_type: quantityType,
@@ -258,6 +259,21 @@ exports.getAllProducts = async (req, res) => {
   }
 };
 
+exports.getallProductOnly = async(req, res) => {
+    try{
+        const ProductOnly = await Products.findAll({
+            attributes: ["product_code",
+                "product_name"]
+        })
+        return res.status(200).json(ProductOnly)
+    }
+    catch(error){
+        res.status(500).json({
+            message: "internal Server Error", Errpr: error.message
+        })
+    }
+};
+
 exports.GetProductbyBarcode = async (req, res) => {
   try {
     const { barcode } = req.params;
@@ -267,12 +283,14 @@ exports.GetProductbyBarcode = async (req, res) => {
       attributes: [
         "productVarient_code",
         "product_code",
+        "productVariant_name",
         "barcode",
         "size",
         "selling_price",
         "discount_percentage",
         "is_discount_active",
         "discount_sellingPrice",
+        "image_url",
       ],
       include: [
         {
@@ -283,7 +301,6 @@ exports.GetProductbyBarcode = async (req, res) => {
             "mCategory_code",
             "sCategory_code",
             "product_description",
-            "image_url",
           ],
         },
         {
@@ -321,13 +338,14 @@ exports.GetProductbyBarcode = async (req, res) => {
       product_code: product.product_code,
       productVarient_code: product.productVarient_code,
       product_name: product.Product?.product_name,
+      productVarient_name: product.productVariant_name,
       size: product.size,
       barcode: product.barcode,
       shop_id: product.Product?.shop_id,
       mCategory_code: product.Product?.mCategory_code,
       sCategory_code: product.Product?.sCategory_code,
       product_description: product.Product?.product_description,
-      image_url: product.Product?.image_url,
+      image_url: product.image_url,
       selling_price: product.selling_price,
       total_quantity: totalQuantity,
       quantity_type: quantityType,
@@ -361,6 +379,7 @@ exports.UpdateProductVarient = async (req, res) => {
       selling_price,
       discount_percentage,
       is_discount_active,
+      image_url,
       attributes = [], // New attributes from body
     } = req.body;
 
@@ -385,6 +404,7 @@ exports.UpdateProductVarient = async (req, res) => {
       productVariant_name,
       discount_percentage,
       is_discount_active,
+      image_url
     });
 
     // Update or create Product Variant Attributes
@@ -427,7 +447,6 @@ exports.updateProducts = async (req, res) => {
       mCategory_code,
       sCategory_code,
       product_description,
-      image_url,
     } = req.body;
 
     if (!product_code) {
@@ -446,7 +465,6 @@ exports.updateProducts = async (req, res) => {
       mCategory_code,
       sCategory_code,
       product_description,
-      image_url,
     });
 
     return res.status(200).json({ message: "Products Updated Successfully" });
